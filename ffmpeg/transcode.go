@@ -4,6 +4,7 @@ import (
 	"context"
 	"gsf/cmd"
 	"math"
+	"os"
 	"strconv"
 	"time"
 
@@ -87,4 +88,23 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 			}
 		}
 	}
+}
+
+func CreateLocalPath(dirPath string, GUID string) string {
+	// Get local destination path.
+	tmpDir := dirPath + "/" + GUID + "/"
+	os.MkdirAll(tmpDir, 0700)
+	os.MkdirAll(tmpDir+"src", 0700)
+	os.MkdirAll(tmpDir+"dst", 0700)
+	return tmpDir
+}
+
+func DelFile(filePath string) error {
+	log.Info("del file: ", filePath)
+
+	err := os.RemoveAll(filePath)
+	if err != nil {
+		return err
+	}
+	return nil
 }

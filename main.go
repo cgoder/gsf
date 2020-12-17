@@ -25,4 +25,5 @@ func main() {
 	if err != nil {
 		log.Error("transcode err")
 	}
+	ffmpeg.DelFile(dest)
 }
