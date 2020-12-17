@@ -2,7 +2,6 @@ package ffmpeg
 
 import (
 	"context"
-	"gsf/cmd"
 	"math"
 	"os"
 	"strconv"
@@ -19,18 +18,32 @@ import (
 // ('h264_main_480p_1000', '{"raw":["-vf scale=-2:480","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}');
 // ('h264_baseline_360p_600', '{"raw":["-vf scale=-2:360","-c:v libx264","-profile:v baseline","-level:v 3.0","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 600k","-maxrate 600k","-bufsize 600k","-b:v 600k","-y"]}');
 
-func Transcode(inURI, outURI, option string) error {
+func Transcode(srcPath, srcFile, destPath, destFile, option string) error {
 
 	// if inURI/outURI not exist.
-	//TODO
+	fileInfo, err := os.Stat(srcPath + srcFile)
+	if err != nil {
+		log.Error("not a file! ", srcPath+srcFile)
+		return err
+	}
+	log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
+
+	_, err = os.Stat(destPath)
+	if err != nil && os.IsNotExist(err) {
+		err = CreateLocalPath(destPath, "")
+		if err != nil {
+			log.Error("create path error! ", destPath)
+			return err
+		}
+	}
 
 	ffprobe := FFProbe{}
 	ffmpeg := FFmpeg{}
 	// log.Info(ffmpeg.Version())
 
 	// probe in file
-	probeData := ffprobe.Run(inURI)
-	log.Info(cmd.JsonFormat(probeData))
+	probeData := ffprobe.Run(srcPath + srcFile)
+	// log.Info(cmd.JsonFormat(probeData))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -41,15 +54,15 @@ func Transcode(inURI, outURI, option string) error {
 	go transcodeProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
 
 	// transcode
-	err := ffmpeg.Run(inURI, outURI, option)
+	err = ffmpeg.Run(srcPath+srcFile, destPath+destFile, option)
 	if err != nil {
 		log.Error("ffmpeg run err")
 		return err
 	}
 
 	// probe out file
-	probeData = ffprobe.Run(outURI)
-	log.Info(cmd.JsonFormat(probeData))
+	// probeData = ffprobe.Run(outURI)
+	// log.Info(cmd.JsonFormat(probeData))
 
 	return nil
 }
@@ -90,13 +103,20 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 	}
 }
 
-func CreateLocalPath(dirPath string, GUID string) string {
+func CreateLocalPath(dirPath string, GUID string) error {
 	// Get local destination path.
-	tmpDir := dirPath + "/" + GUID + "/"
-	os.MkdirAll(tmpDir, 0700)
-	os.MkdirAll(tmpDir+"src", 0700)
-	os.MkdirAll(tmpDir+"dst", 0700)
-	return tmpDir
+	var tmpDir string
+	if GUID == "" {
+		tmpDir = dirPath
+	} else {
+		tmpDir = dirPath + "/" + GUID
+	}
+
+	err := os.MkdirAll(tmpDir, 0700)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func DelFile(filePath string) error {

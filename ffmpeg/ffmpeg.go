@@ -50,7 +50,7 @@ type ffmpegOptions struct {
 	Container string       `json:"container"`
 	Video     videoOptions `json:"video"`
 	Audio     audioOptions `json:"audio"`
-
+	// 优先parse RAW结构中的参数
 	Raw []string `json:"raw"` // Raw flag options.
 }
 
