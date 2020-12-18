@@ -28,7 +28,7 @@ func (f FFProbe) Run(input string) *FFProbeResponse {
 	if err != nil {
 		log.Error(err.Error())
 	}
-	// log.Info((string(stdout))
+	// log.Info(string(stdout))
 
 	dat := &FFProbeResponse{}
 	if err := json.Unmarshal([]byte(stdout), &dat); err != nil {

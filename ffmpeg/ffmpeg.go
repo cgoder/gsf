@@ -3,6 +3,7 @@ package ffmpeg
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,7 +18,7 @@ import (
 // openencoder
 const (
 	ffmpegCmd      = "ffmpeg"
-	updateInterval = time.Second * 5
+	updateInterval = time.Second * 1
 )
 
 // FFmpeg struct.
@@ -28,7 +29,7 @@ type FFmpeg struct {
 }
 
 type progress struct {
-	quit chan struct{}
+	// quit chan struct{}
 
 	Frame      int
 	FPS        float64
@@ -77,7 +78,7 @@ type audioOptions struct {
 }
 
 // Run runs the ffmpeg encoder with options.
-func (f *FFmpeg) Run(input, output, data string) error {
+func (f *FFmpeg) Run(ctx context.Context, input, output, data string) error {
 
 	// Parse options and add to args slice.
 	args := parseOptions(input, output, data)
@@ -85,28 +86,25 @@ func (f *FFmpeg) Run(input, output, data string) error {
 	// Execute command.
 	log.Info("running FFmpeg with options: ", args)
 	f.cmd = exec.Command(ffmpegCmd, args...)
-	stdout, _ := f.cmd.StdoutPipe()
 
 	// Capture stderr (if any).
 	var stderr bytes.Buffer
 	f.cmd.Stderr = &stderr
+	stdout, _ := f.cmd.StdoutPipe()
+
+	// Update status goroutine
+	go f.processProgress(ctx, stdout)
+
+	// Run
 	f.cmd.Start()
-
-	// Send progress updates.
-	go f.trackProgress()
-
-	// Update progress struct.
-	f.updateProgress(stdout)
 
 	err := f.cmd.Wait()
 	if err != nil {
 		if f.isCancelled {
 			return errors.New("cancelled")
 		}
-		f.finish()
 		return err
 	}
-	f.finish()
 	return nil
 }
 
@@ -124,18 +122,6 @@ func (f *FFmpeg) Cancel() {
 func (f *FFmpeg) Version() string {
 	out, _ := exec.Command(ffmpegCmd, "-version").Output()
 	return string(out)
-}
-
-func (f *FFmpeg) updateProgress(stdout io.ReadCloser) {
-	scanner := bufio.NewScanner(stdout)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		str := strings.Replace(line, " ", "", -1)
-
-		parts := strings.Split(str, " ")
-		f.setProgressParts(parts)
-	}
 }
 
 func (f *FFmpeg) setProgressParts(parts []string) {
@@ -172,30 +158,52 @@ func (f *FFmpeg) setProgressParts(parts []string) {
 		case "speed":
 			f.Progress.Speed = v
 		case "progress":
-			progress, _ := strconv.ParseFloat(v, 64)
-			f.Progress.Progress = progress
+			if v == "end" {
+				// end
+				f.Progress.Progress = 1
+			} else {
+				// continue
+				f.Progress.Progress = 0
+			}
+			// progress, _ := strconv.ParseFloat(v, 64)
+			// f.Progress.Progress = progress
 		}
 	}
+	// log.Info(cmd.JsonFormat(f.Progress))
 }
 
-func (f *FFmpeg) trackProgress() {
-	f.Progress.quit = make(chan struct{})
+func (f *FFmpeg) processProgress(ctx context.Context, stdout io.ReadCloser) {
 	ticker := time.NewTicker(updateInterval)
+	defer ticker.Stop()
 
+	scanner := bufio.NewScanner(stdout)
 	for {
 		select {
-		case <-f.Progress.quit:
-			ticker.Stop()
+		case <-ctx.Done():
+			log.Info("ffmpeg process done.")
 			return
+		// case <-quit:
+		// 	log.Info("ffmpeg run quit!")
+		// 	log.Info(cmd.JsonFormat(f.Progress))
+		// 	return
 		case <-ticker.C:
-			log.Info(f.Progress.Progress)
+			for scanner.Scan() {
+				line := scanner.Text()
+				str := strings.Replace(line, " ", "", -1)
+
+				parts := strings.Split(str, " ")
+
+				// log.Info(parts)
+				f.setProgressParts(parts)
+			}
+			// log.Info(cmd.JsonFormat(f.Progress))
 		}
 	}
 }
 
-func (f *FFmpeg) finish() {
-	close(f.Progress.quit)
-}
+// func (f *FFmpeg) finish() {
+// 	close(f.Progress.quit)
+// }
 
 // Utilities for parsing ffmpeg options.
 func parseOptions(input, output, data string) []string {

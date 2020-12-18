@@ -2,12 +2,17 @@ package ffmpeg
 
 import (
 	"context"
+	"gsf/cmd"
 	"math"
 	"os"
 	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	jobUpdateInterval = time.Second * 1
 )
 
 // Transcode 转码
@@ -37,31 +42,32 @@ func Transcode(srcPath, srcFile, destPath, destFile, option string) error {
 		}
 	}
 
-	ffprobe := FFProbe{}
-	ffmpeg := FFmpeg{}
-	// log.Info(ffmpeg.Version())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// defer func() {
+	// 	cancel()
+	// 	time.Sleep(2 * time.Second)
+	// }()
 
 	// probe in file
+	ffprobe := FFProbe{}
+	ffmpeg := FFmpeg{}
 	probeData := ffprobe.Run(srcPath + srcFile)
 	// log.Info(cmd.JsonFormat(probeData))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		cancel()
-	}()
 
 	// progress
 	go transcodeProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
 
 	// transcode
-	err = ffmpeg.Run(srcPath+srcFile, destPath+destFile, option)
+	// log.Info(ffmpeg.Version())
+	err = ffmpeg.Run(ctx, srcPath+srcFile, destPath+destFile, option)
 	if err != nil {
 		log.Error("ffmpeg run err")
 		return err
 	}
-
+	log.Info(cmd.JsonFormat(ffmpeg.Progress))
 	// probe out file
-	// probeData = ffprobe.Run(outURI)
+	// probeData = ffprobe.Run(destPath + destFile)
 	// log.Info(cmd.JsonFormat(probeData))
 
 	return nil
@@ -70,7 +76,7 @@ func Transcode(srcPath, srcFile, destPath, destFile, option string) error {
 func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFProbeResponse, f *FFmpeg) {
 	// db := data.New()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(jobUpdateInterval)
 	defer ticker.Stop()
 
 	for {
@@ -79,10 +85,7 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 			log.Info("transcode done.")
 			return
 		case <-ticker.C:
-			currentFrame := f.Progress.Frame
-			totalFrames, _ := strconv.Atoi(p.Streams[0].NbFrames)
-			speed := f.Progress.Speed
-			fps := f.Progress.FPS
+			// log.Info(cmd.JsonFormat(f.Progress))
 
 			// Check cancel.
 			// status, _ := db.Jobs.GetJobStatusByGUID(guid)
@@ -91,7 +94,11 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 			// }
 
 			// Only track progress if we know the total frames.
+			totalFrames, _ := strconv.Atoi(p.Streams[0].NbFrames)
 			if totalFrames != 0 {
+				currentFrame := f.Progress.Frame
+				speed := f.Progress.Speed
+				fps := f.Progress.FPS
 				pct := (float64(currentFrame) / float64(totalFrames)) * 100
 
 				// Update DB with progress.
