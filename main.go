@@ -7,6 +7,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ffmpeg cmd option
+type ffOpt struct {
+	// input file
+	Input string
+	// output file
+	Output string
+	// ffmpeg cmmmon option
+	CmdOpt []string
+}
+
 func main() {
 	srcPath := "./res/video/"
 	destPath := "./res/out/"
@@ -14,12 +24,6 @@ func main() {
 	srcFile := "test.flv"
 	destFile := "test.mp4"
 
-	// ffmpeg cmd option
-	type ffOpt struct {
-		Input  string
-		Output string
-		CmdOpt []string
-	}
 	// transcode
 	para := []string{
 		"-vf", "scale=-2:960",
