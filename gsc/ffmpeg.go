@@ -1,4 +1,4 @@
-package ffmpeg
+package gsc
 
 import (
 	"bufio"
@@ -29,8 +29,6 @@ type FFmpeg struct {
 }
 
 type progress struct {
-	// quit chan struct{}
-
 	Frame      int
 	FPS        float64
 	Bitrate    float64
@@ -47,12 +45,13 @@ type progress struct {
 type ffmpegOptions struct {
 	Input  string
 	Output string
+	// 优先parse cmdOpt结构中的参数
+	CmdOpt []string `json:"CmdOpt"` // Raw flag options.
 
+	// resave
 	Container string       `json:"container"`
 	Video     videoOptions `json:"video"`
 	Audio     audioOptions `json:"audio"`
-	// 优先parse RAW结构中的参数
-	Raw []string `json:"raw"` // Raw flag options.
 }
 
 type videoOptions struct {
@@ -77,11 +76,11 @@ type audioOptions struct {
 	Codec string
 }
 
-// Run runs the ffmpeg encoder with options.
-func (f *FFmpeg) Run(ctx context.Context, input, output, data string) error {
+// Execute runs the ffmpeg encoder with options.
+func (f *FFmpeg) Execute(ctx context.Context, input, output string, cmdOpt string) error {
 
 	// Parse options and add to args slice.
-	args := parseOptions(input, output, data)
+	args := parseOptions(input, output, cmdOpt)
 
 	// Execute command.
 	log.Info("running FFmpeg with options: ", args)
@@ -93,7 +92,7 @@ func (f *FFmpeg) Run(ctx context.Context, input, output, data string) error {
 	stdout, _ := f.cmd.StdoutPipe()
 
 	// Update status goroutine
-	go f.processProgress(ctx, stdout)
+	go f.execProgress(ctx, stdout)
 
 	// Run
 	f.cmd.Start()
@@ -172,7 +171,7 @@ func (f *FFmpeg) setProgressParts(parts []string) {
 	// log.Info(cmd.JsonFormat(f.Progress))
 }
 
-func (f *FFmpeg) processProgress(ctx context.Context, stdout io.ReadCloser) {
+func (f *FFmpeg) execProgress(ctx context.Context, stdout io.ReadCloser) {
 	ticker := time.NewTicker(updateInterval)
 	defer ticker.Stop()
 
@@ -182,10 +181,6 @@ func (f *FFmpeg) processProgress(ctx context.Context, stdout io.ReadCloser) {
 		case <-ctx.Done():
 			log.Info("ffmpeg process done.")
 			return
-		// case <-quit:
-		// 	log.Info("ffmpeg run quit!")
-		// 	log.Info(cmd.JsonFormat(f.Progress))
-		// 	return
 		case <-ticker.C:
 			for scanner.Scan() {
 				line := scanner.Text()
@@ -201,12 +196,12 @@ func (f *FFmpeg) processProgress(ctx context.Context, stdout io.ReadCloser) {
 	}
 }
 
-// func (f *FFmpeg) finish() {
-// 	close(f.Progress.quit)
-// }
-
 // Utilities for parsing ffmpeg options.
-func parseOptions(input, output, data string) []string {
+func parseOptions(input, output string, cmdOpt string) []string {
+	if input == "" || output == "" || cmdOpt == "" {
+		return nil
+	}
+
 	args := []string{
 		"-hide_banner",
 		"-loglevel", "error", // Set loglevel to fail job on errors.
@@ -214,15 +209,15 @@ func parseOptions(input, output, data string) []string {
 		"-i", input,
 	}
 
-	// Decode JSON get options list from data.
+	// Decode JSON get options list from cmdOpt.
 	options := &ffmpegOptions{}
-	if err := json.Unmarshal([]byte(data), &options); err != nil {
+	log.Info("parse ffmpeg option -> ", cmdOpt)
+	if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
 		panic(err)
 	}
-
 	// If raw options provided, add the list of raw options from ffmpeg presets.
-	if len(options.Raw) > 0 {
-		for _, v := range options.Raw {
+	if len(options.CmdOpt) > 0 {
+		for _, v := range options.CmdOpt {
 			args = append(args, strings.Split(v, " ")...)
 		}
 		args = append(args, output)

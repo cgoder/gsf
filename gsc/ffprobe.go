@@ -1,4 +1,4 @@
-package ffmpeg
+package gsc
 
 import (
 	"encoding/json"
@@ -12,8 +12,8 @@ const ffprobeCmd = "ffprobe"
 // FFProbe struct.
 type FFProbe struct{}
 
-// Run runs an FFProbe command.
-func (f FFProbe) Run(input string) *FFProbeResponse {
+// Execute runs an FFProbe command.
+func (f FFProbe) Execute(input string) *FFProbeResponse {
 	args := []string{
 		"-i", input,
 		"-show_streams",
@@ -23,7 +23,6 @@ func (f FFProbe) Run(input string) *FFProbeResponse {
 
 	// Execute command.
 	cmd := exec.Command(ffprobeCmd, args...)
-	log.Info("Running FFprobe...")
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Error(err.Error())

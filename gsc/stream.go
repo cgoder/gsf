@@ -1,4 +1,4 @@
-package ffmpeg
+package gsc
 
 func Stream(input, output string) error {
 

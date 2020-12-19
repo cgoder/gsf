@@ -1,8 +1,7 @@
-package ffmpeg
+package gsc
 
 import (
 	"context"
-	"gsf/cmd"
 	"math"
 	"os"
 	"strconv"
@@ -12,10 +11,10 @@ import (
 )
 
 var (
-	jobUpdateInterval = time.Second * 1
+	processUpdateInterval = time.Second * 1
 )
 
-// Transcode 转码
+// Run
 // Profile:
 // ('webm_vp9_720p_3000', '{"raw":["-vf scale=-2:720","-c:v libvpx-vp9","-level:v 4.0","-b:v 3000k","-pix_fmt yuv420p","-f webm","-y"]}', true, 'webm_vp9_3000_720.webm');
 // ('h264_main_1080p_6000', '{"raw":["-vf scale=-2:1080","-c:v libx264","-profile:v main","-level:v 4.2","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 6000k","-maxrate 6000k","-bufsize 6000k","-b:v 6000k","-y"]}');
@@ -23,15 +22,15 @@ var (
 // ('h264_main_480p_1000', '{"raw":["-vf scale=-2:480","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}');
 // ('h264_baseline_360p_600', '{"raw":["-vf scale=-2:360","-c:v libx264","-profile:v baseline","-level:v 3.0","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 600k","-maxrate 600k","-bufsize 600k","-b:v 600k","-y"]}');
 
-func Transcode(srcPath, srcFile, destPath, destFile, option string) error {
+func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 
 	// if inURI/outURI not exist.
-	fileInfo, err := os.Stat(srcPath + srcFile)
+	_, err := os.Stat(srcPath + srcFile)
 	if err != nil {
 		log.Error("not a file! ", srcPath+srcFile)
 		return err
 	}
-	log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
+	// log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
 
 	_, err = os.Stat(destPath)
 	if err != nil && os.IsNotExist(err) {
@@ -44,39 +43,42 @@ func Transcode(srcPath, srcFile, destPath, destFile, option string) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// defer func() {
-	// 	cancel()
-	// 	time.Sleep(2 * time.Second)
-	// }()
 
 	// probe in file
-	ffprobe := FFProbe{}
 	ffmpeg := FFmpeg{}
-	probeData := ffprobe.Run(srcPath + srcFile)
+	ffprobe := FFProbe{}
+	probeData := ffprobe.Execute(srcPath + srcFile)
+	if err != nil {
+		log.Error("ffprobe execute err")
+		return err
+	}
 	// log.Info(cmd.JsonFormat(probeData))
 
 	// progress
 	go transcodeProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
 
-	// transcode
+	// Exec
 	// log.Info(ffmpeg.Version())
-	err = ffmpeg.Run(ctx, srcPath+srcFile, destPath+destFile, option)
+	err = ffmpeg.Execute(ctx, srcPath+srcFile, destPath+destFile, cmdOpt)
 	if err != nil {
-		log.Error("ffmpeg run err")
+		log.Error("ffmpeg execute err")
 		return err
 	}
-	log.Info(cmd.JsonFormat(ffmpeg.Progress))
+	// log.Info(cmd.JsonFormat(ffmpeg.Progress))
 	// probe out file
-	// probeData = ffprobe.Run(destPath + destFile)
+	// probeData = ffprobe.Execute(destPath + destFile)
+	// if err != nil {
+	// 	log.Error("ffprobe execute err")
+	// 	return err
+	// }
 	// log.Info(cmd.JsonFormat(probeData))
 
 	return nil
 }
 
 func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFProbeResponse, f *FFmpeg) {
-	// db := data.New()
 
-	ticker := time.NewTicker(jobUpdateInterval)
+	ticker := time.NewTicker(processUpdateInterval)
 	defer ticker.Stop()
 
 	for {
@@ -87,12 +89,6 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 		case <-ticker.C:
 			// log.Info(cmd.JsonFormat(f.Progress))
 
-			// Check cancel.
-			// status, _ := db.Jobs.GetJobStatusByGUID(guid)
-			// if status == types.JobCancelled {
-			// 	f.Cancel()
-			// }
-
 			// Only track progress if we know the total frames.
 			totalFrames, _ := strconv.Atoi(p.Streams[0].NbFrames)
 			if totalFrames != 0 {
@@ -101,10 +97,9 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 				fps := f.Progress.FPS
 				pct := (float64(currentFrame) / float64(totalFrames)) * 100
 
-				// Update DB with progress.
+				// Update progress.
 				pct = math.Round(pct*100) / 100
 				log.Info("progress: %d / %d - %0.2f%%, %d, %s", currentFrame, totalFrames, pct, fps, speed)
-				// db.Jobs.UpdateEncodeProgressByID(encodeID, pct, speed, fps)
 			}
 		}
 	}

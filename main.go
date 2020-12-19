@@ -1,40 +1,62 @@
 package main
 
 import (
-	"gsf/ffmpeg"
+	"encoding/json"
+	gsc "gsf/gsc"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-
-	// str := "ffmpeg -itest.mp4 -c copy -o out.flv"
-	// cmd, err := cmd.ParseCommandLine(str)
-	// if err != nil {
-	// 	fmt.Println("parse cmd err.")
-	// }
-	// // for k, v := range cmd {
-	// // 	fmt.Println(k, v)
-	// // }
-	// fmt.Println(JsonFormat(cmd))
-
-	// res := "./res/video/test.flv"
-	// dest := "./res/out/test.mp4"
-
 	srcPath := "./res/video/"
 	destPath := "./res/out/"
 
 	srcFile := "test.flv"
 	destFile := "test.mp4"
-	cmdTranscode := `{"raw":["-vf scale=-2:960","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}`
-	err := ffmpeg.Transcode(srcPath, srcFile, destPath, destFile, cmdTranscode)
-	// cmdRemux := `{"raw":["-c copy","-y"]}`
-	// err := ffmpeg.Transcode(srcPath, srcFile, destPath, destFile, cmdRemux)
-	// cmdSplit := `{"raw":["-c copy", "-f segment", "-segment_time 5", "-reset_timestamps 1", "-map 0:0", "-map 0:1", "-y"]}`
-	// err := ffmpeg.Transcode(srcPath, srcFile, destPath, "test%d.mp4", cmdSplit)
-	if err != nil {
-		log.Error("transcode err")
-	}
-	// ffmpeg.DelFile(dest)
 
+	// ffmpeg cmd option
+	type ffOpt struct {
+		Input  string
+		Output string
+		CmdOpt []string
+	}
+	// transcode
+	para := []string{
+		"-vf", "scale=-2:960",
+		"-c:v", "libx264",
+		"-profile:v", "main",
+		"-level:v", "3.1",
+		"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
+		"-minrate", "1000k",
+		"-maxrate", "1000k",
+		"-bufsize", "1000k",
+		"-b:v", "1000k",
+		"-y",
+	}
+
+	// remux
+	// para := []string{
+	// 	"-c", "copy",
+	// }
+
+	// split
+	// para := []string{
+	// 	"-c", "copy",
+	// 	"-f", "segment",
+	// 	"-segment_time", "5",
+	// 	"-reset_timestamps", "1",
+	// 	"-map", "0:0",
+	// 	"-map", "0:1",
+	// 	"-y",
+	// }
+	// destFile = "%d.mp4"
+
+	cmdOpt, _ := json.Marshal(ffOpt{srcPath + srcFile, destPath + destFile, para})
+	log.Printf(" inFile-> %v%v\n outFile-> %v%v\n para-> %v\n cmdOpt-> %s\n\n",
+		srcPath, srcFile, destPath, destFile, para, cmdOpt)
+	err := gsc.Run(srcPath, srcFile, destPath, destFile, string(cmdOpt[:]))
+	if err != nil {
+		log.Error("gsc run err")
+	}
+	// gsc.DelFile(dest)
 }
