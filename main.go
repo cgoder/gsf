@@ -56,7 +56,7 @@ func main() {
 	// destFile = "%d.mp4"
 
 	cmdOpt, _ := json.Marshal(ffOpt{srcPath + srcFile, destPath + destFile, para})
-	log.Printf(" inFile-> %v%v\n outFile-> %v%v\n para-> %v\n cmdOpt-> %s\n\n",
+	log.Printf("\n inFile-> %v%v\n outFile-> %v%v\n para-> %v\n cmdOpt-> %s\n\n",
 		srcPath, srcFile, destPath, destFile, para, cmdOpt)
 	err := gsc.Run(srcPath, srcFile, destPath, destFile, string(cmdOpt[:]))
 	if err != nil {

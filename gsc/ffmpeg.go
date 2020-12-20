@@ -2,12 +2,15 @@ package gsc
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
+	"os"
 	"os/exec"
+	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -17,18 +20,24 @@ import (
 
 // openencoder
 const (
-	ffmpegCmd      = "ffmpeg"
-	updateInterval = time.Second * 1
+	ffmpegCmd = "ffmpeg"
 )
+
+// regex extracting the duration value of an input stream.
+// the duration has the format HOURS:MINUTES:SECONDS.MILLISECONDS
+var ffmpegStreamDurationRegex = regexp.MustCompile(`Duration: ([0-9]*):([0-9]*):([0-9]*).([0-9]*)`)
+
+// regex extracting the out_time_ms value from an ffmpeg progress line.
+var ffmpegOutTimeMSRegex = regexp.MustCompile(`out_time_ms=([0-9]*)`)
 
 // FFmpeg struct.
 type FFmpeg struct {
-	Progress    progress
+	Status      ProcStatus
 	cmd         *exec.Cmd
 	isCancelled bool
 }
 
-type progress struct {
+type ProcStatus struct {
 	Frame      int
 	FPS        float64
 	Bitrate    float64
@@ -38,7 +47,8 @@ type progress struct {
 	DupFrames  int
 	DropFrames int
 	Speed      string
-	Progress   float64
+	Progress   string
+	Percent    float64
 }
 
 // ffmpegOptions struct passed into Ffmpeg.Run.
@@ -80,29 +90,51 @@ type audioOptions struct {
 func (f *FFmpeg) Execute(ctx context.Context, input, output string, cmdOpt string) error {
 
 	// Parse options and add to args slice.
-	args := parseOptions(input, output, cmdOpt)
+	ok, args := parseOptions(input, output, cmdOpt)
+	if !ok {
+		err := errors.New("ffmpeg execute args error")
+		return err
+	}
 
 	// Execute command.
 	log.Info("running FFmpeg with options: ", args)
-	f.cmd = exec.Command(ffmpegCmd, args...)
+	// f.cmd = exec.Command(ffmpegCmd, args...)
+	f.cmd = exec.CommandContext(ctx, ffmpegCmd, args...)
 
-	// Capture stderr (if any).
-	var stderr bytes.Buffer
-	f.cmd.Stderr = &stderr
-	stdout, _ := f.cmd.StdoutPipe()
+	// // Capture stderr (if any).
+	// var stderr bytes.Buffer
+	// f.cmd.Stderr = &stderr
+	// stdout, _ := f.cmd.StdoutPipe()
+
+	// ffmpeg writes its output to stderr
+	stderr, err := f.cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	// the progress data is written to stdout
+	stdout, err := f.cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderrChan := make(chan string)
+	go readLinesToChannel(stderr, stderrChan)
+	stdoutChan := make(chan string)
+	go readLinesToChannel(stdout, stdoutChan)
 
 	// Update status goroutine
-	go f.execProgress(ctx, stdout)
+	go f.execProgress(ctx, stdoutChan, stderrChan)
 
 	// Run
 	f.cmd.Start()
 
-	err := f.cmd.Wait()
-	if err != nil {
+	errs := f.cmd.Wait()
+	if errs != nil {
 		if f.isCancelled {
 			return errors.New("cancelled")
 		}
-		return err
+		return errs
 	}
 	return nil
 }
@@ -126,86 +158,155 @@ func (f *FFmpeg) Version() string {
 func (f *FFmpeg) setProgressParts(parts []string) {
 	for i := 0; i < len(parts); i++ {
 		progressSplit := strings.Split(parts[i], "=")
+		if progressSplit[0] == "" {
+			return
+		}
+		// log.Info(progressSplit)
 		k := progressSplit[0]
 		v := progressSplit[1]
 
 		switch k {
 		case "frame":
 			frame, _ := strconv.Atoi(v)
-			f.Progress.Frame = frame
+			f.Status.Frame = frame
 		case "fps":
 			fps, _ := strconv.ParseFloat(v, 64)
-			f.Progress.FPS = fps
+			f.Status.FPS = fps
 		case "bitrate":
 			v = strings.Replace(v, "kbits/s", "", -1)
 			bitrate, _ := strconv.ParseFloat(v, 64)
-			f.Progress.Bitrate = bitrate
+			f.Status.Bitrate = bitrate
 		case "total_size":
 			size, _ := strconv.Atoi(v)
-			f.Progress.TotalSize = size
+			f.Status.TotalSize = size
 		case "out_time_ms":
 			outTimeMS, _ := strconv.Atoi(v)
-			f.Progress.OutTimeMS = outTimeMS
+			f.Status.OutTimeMS = outTimeMS
 		case "out_time":
-			f.Progress.OutTime = v
+			f.Status.OutTime = v
 		case "dup_frames":
 			frames, _ := strconv.Atoi(v)
-			f.Progress.DupFrames = frames
+			f.Status.DupFrames = frames
 		case "drop_frames":
 			frames, _ := strconv.Atoi(v)
-			f.Progress.DropFrames = frames
+			f.Status.DropFrames = frames
 		case "speed":
-			f.Progress.Speed = v
+			f.Status.Speed = v
 		case "progress":
-			if v == "end" {
-				// end
-				f.Progress.Progress = 1
-			} else {
-				// continue
-				f.Progress.Progress = 0
-			}
-			// progress, _ := strconv.ParseFloat(v, 64)
-			// f.Progress.Progress = progress
+			// if v == "end" {
+			// 	// end
+			// 	f.Status.Progress = "1"
+			// } else {
+			// 	// continue
+			// 	f.Status.Progress = "0"
+			// }
+			f.Status.Progress = v
 		}
 	}
-	// log.Info(cmd.JsonFormat(f.Progress))
 }
 
-func (f *FFmpeg) execProgress(ctx context.Context, stdout io.ReadCloser) {
-	ticker := time.NewTicker(updateInterval)
-	defer ticker.Stop()
+func (f *FFmpeg) execProgress(ctx context.Context, stdoutChan <-chan string, stderrChan <-chan string) {
 
-	scanner := bufio.NewScanner(stdout)
+	var duration time.Duration
+
 	for {
 		select {
 		case <-ctx.Done():
 			log.Info("ffmpeg process done.")
 			return
-		case <-ticker.C:
-			for scanner.Scan() {
-				line := scanner.Text()
-				str := strings.Replace(line, " ", "", -1)
-
-				parts := strings.Split(str, " ")
-
-				// log.Info(parts)
-				f.setProgressParts(parts)
+		case line, ok := <-stderrChan:
+			if !ok {
+				stderrChan = nil
 			}
-			// log.Info(cmd.JsonFormat(f.Progress))
+			if duration == 0 {
+				// look for video duration line
+				if m := ffmpegStreamDurationRegex.FindStringSubmatch(line); m != nil {
+					hours, err := strconv.ParseInt(m[1], 10, 64)
+					if err != nil {
+						log.Errorf("error parsing duration value: %s", err.Error())
+						// return
+					}
+					duration += time.Duration(hours) * time.Hour
+
+					minutes, err := strconv.ParseInt(m[2], 10, 64)
+					if err != nil {
+						log.Errorf("error parsing duration value: %s", err.Error())
+						// return
+					}
+					duration += time.Duration(minutes) * time.Minute
+
+					seconds, err := strconv.ParseInt(m[3], 10, 64)
+					if err != nil {
+						log.Errorf("error parsing duration value: %s", err.Error())
+						// return
+					}
+					duration += time.Duration(seconds) * time.Second
+
+					millis, err := strconv.ParseInt(m[4], 10, 64)
+					if err != nil {
+						log.Errorf("error parsing duration value: %s", err.Error())
+						// return
+					}
+					duration += time.Duration(millis) * time.Millisecond
+					// log.Info("execProgress input file Duration: ", duration)
+				}
+			}
+		case line, ok := <-stdoutChan:
+			if !ok {
+				stdoutChan = nil
+			}
+
+			str := strings.Replace(line, " ", "", -1)
+			parts := strings.Split(str, " ")
+			f.setProgressParts(parts)
+
+			if m := ffmpegOutTimeMSRegex.FindStringSubmatch(line); m != nil {
+				if duration == 0 {
+					// we haven't found the input duration value,
+					// which should always occur before the -progress output
+					log.Errorf("could not find duration of input file")
+					// return
+				}
+
+				millis, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil {
+					log.Errorf("error parsing output time value: %s", err.Error())
+					// return
+				}
+
+				p := time.Duration(millis) * time.Microsecond
+				// limit the progress to 1.0, as the duration printed
+				// by ffmpeg may be a bit inaccurate.
+				// we could use ffprobe to get the precise duration of the
+				// period, but it's really not worth the hassle.
+				progress := math.Min(1, float64(p)/float64(duration))
+				f.Status.Percent = progress * 100
+
+				// log.Info("execProgress:progress: ", f.Status.Percent, "[", f.Status.Progress, "]")
+			}
+
+			// log.Info(cmd.JsonFormat(f.Status))
 		}
 	}
 }
 
 // Utilities for parsing ffmpeg options.
-func parseOptions(input, output string, cmdOpt string) []string {
+func parseOptions(input, output string, cmdOpt string) (bool, []string) {
 	if input == "" || output == "" || cmdOpt == "" {
-		return nil
+		return false, nil
+	}
+	var stdoutName string
+	if runtime.GOOS == "windows" {
+		// pipe:1 is the windows equivalent of /dev/stdout
+		stdoutName = "pipe:1"
+	} else {
+		stdoutName = os.Stdout.Name()
 	}
 
 	args := []string{
 		"-hide_banner",
-		"-loglevel", "error", // Set loglevel to fail job on errors.
-		"-progress", "pipe:1",
+		// "-loglevel", "error", // Set loglevel to fail job on errors.
+		"-progress", stdoutName,
 		"-i", input,
 	}
 
@@ -221,7 +322,7 @@ func parseOptions(input, output string, cmdOpt string) []string {
 			args = append(args, strings.Split(v, " ")...)
 		}
 		args = append(args, output)
-		return args
+		return true, args
 	}
 
 	// Set options from struct.
@@ -229,7 +330,7 @@ func parseOptions(input, output string, cmdOpt string) []string {
 
 	// Add output arg last.
 	args = append(args, output)
-	return args
+	return true, args
 }
 
 // transformOptions converts the ffmpegOptions{} struct and converts into
@@ -358,4 +459,12 @@ func transformOptions(opt *ffmpegOptions) []string {
 	}
 	args = append(args, extra...)
 	return args
+}
+
+func readLinesToChannel(reader io.Reader, lineChan chan<- string) {
+	r := bufio.NewScanner(reader)
+	for r.Scan() {
+		lineChan <- r.Text()
+	}
+	close(lineChan)
 }

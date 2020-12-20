@@ -2,9 +2,8 @@ package gsc
 
 import (
 	"context"
-	"math"
+	"gsf/common"
 	"os"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -52,10 +51,10 @@ func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 		log.Error("ffprobe execute err")
 		return err
 	}
-	// log.Info(cmd.JsonFormat(probeData))
+	// log.Info(common.JsonFormat(probeData))
 
 	// progress
-	go transcodeProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
+	go runProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
 
 	// Exec
 	// log.Info(ffmpeg.Version())
@@ -64,19 +63,19 @@ func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 		log.Error("ffmpeg execute err")
 		return err
 	}
-	// log.Info(cmd.JsonFormat(ffmpeg.Progress))
+	// log.Info(common.JsonFormat(ffmpeg.Status))
 	// probe out file
 	// probeData = ffprobe.Execute(destPath + destFile)
 	// if err != nil {
 	// 	log.Error("ffprobe execute err")
 	// 	return err
 	// }
-	// log.Info(cmd.JsonFormat(probeData))
+	// log.Info(common.JsonFormat(probeData))
 
 	return nil
 }
 
-func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFProbeResponse, f *FFmpeg) {
+func runProgress(ctx context.Context, guid string, encodeID int64, p *FFProbeResponse, f *FFmpeg) {
 
 	ticker := time.NewTicker(processUpdateInterval)
 	defer ticker.Stop()
@@ -87,20 +86,7 @@ func transcodeProgress(ctx context.Context, guid string, encodeID int64, p *FFPr
 			log.Info("transcode done.")
 			return
 		case <-ticker.C:
-			// log.Info(cmd.JsonFormat(f.Progress))
-
-			// Only track progress if we know the total frames.
-			totalFrames, _ := strconv.Atoi(p.Streams[0].NbFrames)
-			if totalFrames != 0 {
-				currentFrame := f.Progress.Frame
-				speed := f.Progress.Speed
-				fps := f.Progress.FPS
-				pct := (float64(currentFrame) / float64(totalFrames)) * 100
-
-				// Update progress.
-				pct = math.Round(pct*100) / 100
-				log.Info("progress: %d / %d - %0.2f%%, %d, %s", currentFrame, totalFrames, pct, fps, speed)
-			}
+			log.Info(common.JsonFormat(f.Status))
 		}
 	}
 }
