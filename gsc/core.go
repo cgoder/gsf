@@ -3,6 +3,7 @@ package gsc
 import (
 	"context"
 	"gsf/common"
+	"gsf/gsc/ffmpeg"
 	"os"
 	"time"
 
@@ -44,14 +45,14 @@ func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 	defer cancel()
 
 	// probe in file
-	ffmpeg := FFmpeg{}
-	ffprobe := FFProbe{}
+	ffprobe := ffmpeg.FFProbe{}
+	ffmpeg := ffmpeg.FFmpeg{}
 	probeData := ffprobe.Execute(srcPath + srcFile)
 	if err != nil {
 		log.Error("ffprobe execute err")
 		return err
 	}
-	// log.Info(common.JsonFormat(probeData))
+	log.Info(common.JsonFormat(probeData))
 
 	// progress
 	go runProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
@@ -75,7 +76,7 @@ func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 	return nil
 }
 
-func runProgress(ctx context.Context, guid string, encodeID int64, p *FFProbeResponse, f *FFmpeg) {
+func runProgress(ctx context.Context, guid string, encodeID int64, p *ffmpeg.Metadata, f *ffmpeg.FFmpeg) {
 
 	ticker := time.NewTicker(processUpdateInterval)
 	defer ticker.Stop()
