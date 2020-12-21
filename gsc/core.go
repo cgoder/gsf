@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	processUpdateInterval = time.Second * 1
+	processUpdateInterval = time.Millisecond * 500
 )
 
 // Run
@@ -84,9 +84,11 @@ func runProgress(ctx context.Context, guid string, encodeID int64, p *ffmpeg.Met
 	for {
 		select {
 		case <-ctx.Done():
+			log.Info(common.JsonFormat(f.Status))
 			log.Info("transcode done.")
 			return
 		case <-ticker.C:
+			// default:
 			log.Info(common.JsonFormat(f.Status))
 		}
 	}
