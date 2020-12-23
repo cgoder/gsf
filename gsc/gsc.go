@@ -2,10 +2,14 @@ package gsc
 
 import (
 	"context"
-	"gsf/common"
-	"gsf/gsc/ffmpeg"
+	"encoding/json"
+	"errors"
 	"os"
+	"reflect"
 	"time"
+
+	"github.com/cgoder/gsc/common"
+	"github.com/cgoder/gsc/core/ffmpeg"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -13,6 +17,30 @@ import (
 var (
 	processUpdateInterval = time.Millisecond * 500
 )
+
+func parseArgs(cmdArgs ffmpeg.CmdArgs) ffmpeg.Options {
+	///// CmdSlice []string
+	value := reflect.ValueOf(cmdArgs)
+	types := reflect.TypeOf(cmdArgs)
+	var args []string
+	for i := 0; i < value.NumField(); i++ {
+		if value.Field(i).String() != "" {
+			args = append(args, types.Field(i).Tag.Get("json"), value.Field(i).String())
+			log.Printf("Field %v: %v\n", types.Field(i).Tag.Get("json"), value.Field(i))
+		}
+	}
+	log.Printf("args--->%s   ", args)
+
+	////// CmdOpt   string
+	paraS, _ := json.Marshal(cmdArgs)
+	// log.Printf("paraS--->%s   ", paraS)
+	paraStr := string(paraS[:])
+	log.Info("paraStr--->   ", paraStr)
+
+	ffopt := ffmpeg.Options{CmdOpt: paraStr, CmdSlice: args}
+	log.Info("ffopt--->   ", ffopt)
+	return ffopt
+}
 
 // Run
 // Profile:
@@ -22,24 +50,31 @@ var (
 // ('h264_main_480p_1000', '{"raw":["-vf scale=-2:480","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}');
 // ('h264_baseline_360p_600', '{"raw":["-vf scale=-2:360","-c:v libx264","-profile:v baseline","-level:v 3.0","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 600k","-maxrate 600k","-bufsize 600k","-b:v 600k","-y"]}');
 
-func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
+func Run(args ffmpeg.CmdArgs) error {
+	ffopt := parseArgs(args)
 
 	// if inURI/outURI not exist.
-	_, err := os.Stat(srcPath + srcFile)
-	if err != nil {
-		log.Error("not a file! ", srcPath+srcFile)
+	src, ok := ffopt.GetArgument("-i")
+	if !ok {
+		err := errors.New("ffmpeg get args error")
 		return err
 	}
+	_, err := os.Stat(src)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	// log.Info(src)
 	// log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
 
-	_, err = os.Stat(destPath)
-	if err != nil && os.IsNotExist(err) {
-		err = CreateLocalPath(destPath, "")
-		if err != nil {
-			log.Error("create path error! ", destPath)
-			return err
-		}
-	}
+	// _, err = os.Stat(destPath)
+	// if err != nil && os.IsNotExist(err) {
+	// 	err = CreateLocalPath(destPath, "")
+	// 	if err != nil {
+	// 		log.Error("create path error! ", destPath)
+	// 		return err
+	// 	}
+	// }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -47,31 +82,31 @@ func Run(srcPath, srcFile, destPath, destFile string, cmdOpt string) error {
 	// probe in file
 	ffprobe := ffmpeg.FFProbe{}
 	ffmpeg := ffmpeg.FFmpeg{}
-	probeData := ffprobe.Execute(srcPath + srcFile)
+	probeData := ffprobe.Execute(src, "")
 	if err != nil {
 		log.Error("ffprobe execute err")
 		return err
 	}
-	log.Info(common.JsonFormat(probeData))
+	// log.Info("Source file info ---> ", common.JsonFormat(probeData))
 
 	// progress
 	go runProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
 
 	// Exec
 	// log.Info(ffmpeg.Version())
-	err = ffmpeg.Execute(ctx, srcPath+srcFile, destPath+destFile, cmdOpt)
+	err = ffmpeg.Execute(ctx, ffopt)
 	if err != nil {
 		log.Error("ffmpeg execute err")
 		return err
 	}
-	// log.Info(common.JsonFormat(ffmpeg.Status))
+	// log.Info(Common.JsonFormat(ffmpeg.Status))
 	// probe out file
 	// probeData = ffprobe.Execute(destPath + destFile)
 	// if err != nil {
 	// 	log.Error("ffprobe execute err")
 	// 	return err
 	// }
-	// log.Info(common.JsonFormat(probeData))
+	// log.Info(Common.JsonFormat(probeData))
 
 	return nil
 }

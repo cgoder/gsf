@@ -13,13 +13,17 @@ const ffprobeCmd = "ffprobe"
 type FFProbe struct{}
 
 // Execute runs an FFProbe command.
-func (f FFProbe) Execute(input string) *Metadata {
+func (f FFProbe) Execute(input string, cmdOpt string) *Metadata {
 	args := []string{
 		"-i", input,
 		"-show_format",
 		"-show_streams",
 		"-print_format", "json",
 		"-v", "quiet",
+	}
+
+	if cmdOpt != "" {
+		args = append(args, cmdOpt)
 	}
 
 	// Execute command.

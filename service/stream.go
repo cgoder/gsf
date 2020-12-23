@@ -1,4 +1,4 @@
-package gsc
+package service
 
 func Stream(input, output string) error {
 

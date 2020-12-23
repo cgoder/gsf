@@ -1,16 +1,11 @@
-module gsf
+module github.com/cgoder/gsf
 
 go 1.14
 
 require (
+	github.com/cgoder/gsc v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.7.0
-	gsf/common v0.0.0-00010101000000-000000000000 // indirect
-	gsf/gsc v0.0.0-00010101000000-000000000000
-	gsf/gsc/ffmpeg v0.0.0-00010101000000-000000000000 // indirect
+	github.com/stretchr/testify v1.4.0 // indirect
 )
 
-replace (
-	gsf/common => ./common
-	gsf/gsc => ./gsc
-	gsf/gsc/ffmpeg => ./gsc/ffmpeg
-)
+replace github.com/cgoder/gsc => ./gsc

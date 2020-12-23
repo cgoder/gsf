@@ -3,7 +3,6 @@ package ffmpeg
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"math"
@@ -87,17 +86,21 @@ type audioOptions struct {
 }
 
 // Execute runs the ffmpeg encoder with options.
-func (f *FFmpeg) Execute(ctx context.Context, input, output string, cmdOpt string) error {
+func (f *FFmpeg) Execute(ctx context.Context, ffopt Options) error {
 
+	log.Info("ffopt.CmdOpt---", ffopt.CmdOpt)
+	log.Info("ffopt.CmdSlice---", ffopt.CmdSlice)
+	log.Info("ffopt.arguments---", ffopt.arguments)
 	// Parse options and add to args slice.
-	ok, args := parseOptions(input, output, cmdOpt)
+	ok, args := parseOptions(ffopt.CmdSlice)
 	if !ok {
 		err := errors.New("ffmpeg execute args error")
 		return err
 	}
 
 	// Execute command.
-	log.Info("running FFmpeg with options: ", args)
+	log.Printf("running FFmpeg with options: %s", args)
+	// args = append(args, cmdOpt)
 	// f.cmd = exec.Command(ffmpegCmd, args...)
 	f.cmd = exec.CommandContext(ctx, ffmpegCmd, args...)
 
@@ -137,6 +140,58 @@ func (f *FFmpeg) Execute(ctx context.Context, input, output string, cmdOpt strin
 		return errs
 	}
 	return nil
+}
+
+// Utilities for parsing ffmpeg options.
+func parseOptions(cmdSlice []string) (bool, []string) {
+	if cmdSlice == nil {
+		return false, nil
+	}
+
+	var stdoutName string
+	if runtime.GOOS == "windows" {
+		// pipe:1 is the windows equivalent of /dev/stdout
+		stdoutName = "pipe:1"
+	} else {
+		stdoutName = os.Stdout.Name()
+	}
+
+	args := []string{
+		"-hide_banner",
+		// "-loglevel", "error", // Set loglevel to fail job on errors.
+		"-progress", stdoutName,
+	}
+
+	for _, v := range cmdSlice {
+		args = append(args, v)
+	}
+
+	// Decode JSON get options list from cmdOpt.
+	// options := CmdArgs{}
+	// log.Printf("parse ffmpeg cmdOpt -> %s", cmdOpt)
+	// if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
+	// 	panic(err)
+	// }
+	// log.Printf("parse ffmpeg option -> %s", options)
+
+	// log.Printf("parse ffmpeg args -> %s", args)
+	// // log.Info(strings.Join(string(cmdOpt[:]), ":"))
+	// log.Info(common.JsonFormat(options))
+	// If raw options provided, add the list of raw options from ffmpeg presets.
+	// if len(options) > 0 {
+	// 	for _, v := range options {
+	// 		args = append(args, strings.Split(v, " ")...)
+	// 	}
+	// 	// args = append(args, output)
+	// 	return true, args
+	// }
+
+	// Set options from struct.
+	// args = append(args, transformOptions(options)...)
+
+	// Add output arg last.
+	// args = append(args, output)
+	return true, args
 }
 
 // Cancel stops an FFmpeg job from running.
@@ -285,52 +340,9 @@ func (f *FFmpeg) execProgress(ctx context.Context, stdoutChan <-chan string, std
 				// log.Info("execProgress:progress: ", f.Status.Percent, "[", f.Status.Progress, "]")
 			}
 
-			// log.Info(cmd.JsonFormat(f.Status))
+			// log.Info(JsonFormat(f.Status))
 		}
 	}
-}
-
-// Utilities for parsing ffmpeg options.
-func parseOptions(input, output string, cmdOpt string) (bool, []string) {
-	if input == "" || output == "" || cmdOpt == "" {
-		return false, nil
-	}
-	var stdoutName string
-	if runtime.GOOS == "windows" {
-		// pipe:1 is the windows equivalent of /dev/stdout
-		stdoutName = "pipe:1"
-	} else {
-		stdoutName = os.Stdout.Name()
-	}
-
-	args := []string{
-		"-hide_banner",
-		// "-loglevel", "error", // Set loglevel to fail job on errors.
-		"-progress", stdoutName,
-		"-i", input,
-	}
-
-	// Decode JSON get options list from cmdOpt.
-	options := &ffmpegOptions{}
-	log.Info("parse ffmpeg option -> ", cmdOpt)
-	if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
-		panic(err)
-	}
-	// If raw options provided, add the list of raw options from ffmpeg presets.
-	if len(options.CmdOpt) > 0 {
-		for _, v := range options.CmdOpt {
-			args = append(args, strings.Split(v, " ")...)
-		}
-		args = append(args, output)
-		return true, args
-	}
-
-	// Set options from struct.
-	args = append(args, transformOptions(options)...)
-
-	// Add output arg last.
-	args = append(args, output)
-	return true, args
 }
 
 // transformOptions converts the ffmpegOptions{} struct and converts into

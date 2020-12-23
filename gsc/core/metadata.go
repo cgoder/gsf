@@ -1,4 +1,4 @@
-package gsc
+package core
 
 // Metadata ...
 type Metadata interface {

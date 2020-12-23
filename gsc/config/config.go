@@ -1,4 +1,4 @@
-package config
+package gsc
 
 import (
 	"encoding/hex"
