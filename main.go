@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/cgoder/gsc"
-	"github.com/cgoder/gsc/core/ffmpeg"
+	"github.com/cgoder/gsc/core"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,7 +45,7 @@ func main() {
 	// 	"-y",
 	// }
 
-	para := ffmpeg.CmdArgs{
+	para := core.Option{
 		Input:           srcPath + srcFile,
 		VideoFilter:     "scale=-2:960",
 		VideoCodec:      "libx264",

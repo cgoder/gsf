@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cgoder/gsc/common"
+	"github.com/cgoder/gsc/core"
 	"github.com/cgoder/gsc/core/ffmpeg"
 
 	log "github.com/sirupsen/logrus"
@@ -18,10 +19,10 @@ var (
 	processUpdateInterval = time.Millisecond * 500
 )
 
-func parseArgs(cmdArgs ffmpeg.CmdArgs) ffmpeg.Options {
+func parseOptions(opt core.Option) ffmpeg.FfOption {
 	///// CmdSlice []string
-	value := reflect.ValueOf(cmdArgs)
-	types := reflect.TypeOf(cmdArgs)
+	value := reflect.ValueOf(opt)
+	types := reflect.TypeOf(opt)
 	var args []string
 	for i := 0; i < value.NumField(); i++ {
 		if value.Field(i).String() != "" {
@@ -31,13 +32,13 @@ func parseArgs(cmdArgs ffmpeg.CmdArgs) ffmpeg.Options {
 	}
 	log.Printf("args--->%s   ", args)
 
-	////// CmdOpt   string
-	paraS, _ := json.Marshal(cmdArgs)
+	////// CmdString   string
+	paraS, _ := json.Marshal(opt)
 	// log.Printf("paraS--->%s   ", paraS)
 	paraStr := string(paraS[:])
 	log.Info("paraStr--->   ", paraStr)
 
-	ffopt := ffmpeg.Options{CmdOpt: paraStr, CmdSlice: args}
+	ffopt := ffmpeg.FfOption{CmdString: paraStr, CmdSlice: args}
 	log.Info("ffopt--->   ", ffopt)
 	return ffopt
 }
@@ -50,8 +51,8 @@ func parseArgs(cmdArgs ffmpeg.CmdArgs) ffmpeg.Options {
 // ('h264_main_480p_1000', '{"raw":["-vf scale=-2:480","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}');
 // ('h264_baseline_360p_600', '{"raw":["-vf scale=-2:360","-c:v libx264","-profile:v baseline","-level:v 3.0","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 600k","-maxrate 600k","-bufsize 600k","-b:v 600k","-y"]}');
 
-func Run(args ffmpeg.CmdArgs) error {
-	ffopt := parseArgs(args)
+func Run(opt core.Option) error {
+	ffopt := parseOptions(opt)
 
 	// if inURI/outURI not exist.
 	src, ok := ffopt.GetArgument("-i")
@@ -67,11 +68,16 @@ func Run(args ffmpeg.CmdArgs) error {
 	// log.Info(src)
 	// log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
 
-	// _, err = os.Stat(destPath)
+	// dst, ok := ffopt.GetArgument("-o")
+	// if !ok {
+	// 	err := errors.New("ffmpeg get args error")
+	// 	return err
+	// }
+	// _, err = os.Stat(dst)
 	// if err != nil && os.IsNotExist(err) {
-	// 	err = CreateLocalPath(destPath, "")
+	// 	err = CreateLocalPath(dst, "")
 	// 	if err != nil {
-	// 		log.Error("create path error! ", destPath)
+	// 		log.Error("create path error! ", dst)
 	// 		return err
 	// 	}
 	// }

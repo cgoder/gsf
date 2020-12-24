@@ -1,37 +1,9 @@
-package ffmpeg
+package core
 
-import (
-	"encoding/json"
+type OptionFunc func(*Option)
 
-	"github.com/cgoder/gsc/common"
-	log "github.com/sirupsen/logrus"
-)
-
-// type FFopt struct {
-// 	// input file
-// 	Input string
-// 	// output file
-// 	Output string
-// 	// ffmpeg cmmmon option
-// 	CmdOpt string
-
-// 	Opt Options
-// }
-
-type Options struct {
-	// input file
-	// Input string
-	// // output file
-	// Output string
-	// ffmpeg cmmmon option
-	CmdSlice []string
-	// all parsed args from CmdOpt
-	CmdOpt    string
-	arguments map[string]string
-}
-
-// Options defines allowed FFmpeg arguments
-type CmdArgs struct {
+// FfOption defines allowed FFmpeg arguments
+type Option struct {
 	Input                 string `json:"-i"`
 	Output                string `json:"-o"`
 	Aspect                string `json:"-aspect"`
@@ -91,7 +63,7 @@ type CmdArgs struct {
 	Overwrite             string `json:"-y"`
 }
 
-// type CmdArgs struct {
+// type Option struct {
 // 	Input                 string `json:"-i"`
 // 	Output                string `json:"-o,omitempty"`
 // 	Aspect                string `json:"-aspect,omitempty"`
@@ -154,95 +126,4 @@ type CmdArgs struct {
 // 	// WhiteListProtocols []string `json:"-protocol_whitelist,omitempty"`
 // 	// reuse for output
 // 	// ExtraArgs map[string]interface{} `json:",omitempty"`
-// }
-
-// GetArgument
-func (opts *Options) GetArgument(arg string) (string, bool) {
-	if opts.CmdSlice == nil {
-		return "", false
-	}
-	// cmd := strings.Join(opts.CmdSlice, " ")
-	// log.Info(common.JsonFormat(cmd))
-	if opts.arguments == nil {
-		if err := json.Unmarshal([]byte(opts.CmdOpt), &opts.arguments); err != nil {
-			log.Error("cmd args encode to map fail")
-			return "", false
-		}
-
-		// if opts.CmdOpt == "" {
-		// 	log.Error("parse args first!")
-		// 	return "", false
-		// } else {
-		// 	opts.SetStrArguments(opts.CmdSlice)
-		// }
-	}
-	log.Info(common.JsonFormat(opts.arguments))
-
-	if v, ok := opts.arguments[arg]; ok {
-		return v, true
-	}
-
-	log.Error("can not find arg-> .", arg)
-	return "", false
-}
-
-// GetStrArguments ...
-func (opts *Options) GetStrArguments() map[string]string {
-	return opts.arguments
-}
-
-// ParseStrArguments
-func (opts *Options) SetStrArguments(cmdSlice []byte) {
-
-	// if opts.CmdOpt == "" {
-	// 	opts.CmdOpt = cmd
-	// 	// opts.arguments = getCmdArguments(opts.CmdOpt)
-	// } else {
-	// 	if opts.CmdOpt != cmd {
-	// 		opts.CmdOpt = cmd
-	// 		// opts.arguments = getCmdArguments(opts.CmdOpt)
-	// 	}
-	// }
-
-	// if err := json.Unmarshal([]byte(cmd), &opts.arguments); err != nil {
-	// 	log.Error("cmd encode to map fail")
-
-	// }
-
-	// log.Info("opts---> ", opts)
-	// log.Info("opts.CmdOpt---> ", JsonFormat(opts.CmdOpt))
-	// log.Info("opts.arguments--->", JsonFormat(opts.arguments))
-}
-
-// func getCmdArguments(cmd string) map[string]string {
-// 	var mapResult map[string]string
-// 	if err := json.Unmarshal([]byte(cmd), &mapResult); err != nil {
-// 		log.Error("cmd encode to map fail")
-// 		return nil
-// 	}
-// 	log.Info("mapResult---> ", JsonFormat(mapResult))
-
-// 	return mapResult
-// }
-
-// func getStrArguments(args CmdArgs) map[string]string {
-// 	f := reflect.TypeOf(args)
-// 	v := reflect.ValueOf(args)
-
-// 	strArgs := make(map[string]string)
-
-// 	for i := 0; i < f.NumField(); i++ {
-// 		flag := f.Field(i).Tag.Get("json")
-// 		// flag := f.Field(i).Interface()
-// 		value := v.Field(i).Interface()
-// 		// log.Info("flag.... ", flag)
-// 		// log.Info("value.... ", value)
-// 		if !v.Field(i).IsZero() {
-// 			if vs, ok := value.(string); ok {
-// 				strArgs[flag] = vs
-// 			}
-// 		}
-// 	}
-// 	// log.Info("strArgs.... ", JsonFormat(strArgs))
-// 	return strArgs
 // }

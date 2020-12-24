@@ -55,7 +55,7 @@ type ffmpegOptions struct {
 	Input  string
 	Output string
 	// 优先parse cmdOpt结构中的参数
-	CmdOpt []string `json:"CmdOpt"` // Raw flag options.
+	CmdString []string `json:"CmdString"` // Raw flag options.
 
 	// resave
 	Container string       `json:"container"`
@@ -86,9 +86,9 @@ type audioOptions struct {
 }
 
 // Execute runs the ffmpeg encoder with options.
-func (f *FFmpeg) Execute(ctx context.Context, ffopt Options) error {
+func (f *FFmpeg) Execute(ctx context.Context, ffopt FfOption) error {
 
-	log.Info("ffopt.CmdOpt---", ffopt.CmdOpt)
+	log.Info("ffopt.CmdString---", ffopt.CmdString)
 	log.Info("ffopt.CmdSlice---", ffopt.CmdSlice)
 	log.Info("ffopt.arguments---", ffopt.arguments)
 	// Parse options and add to args slice.
@@ -167,7 +167,7 @@ func parseOptions(cmdSlice []string) (bool, []string) {
 	}
 
 	// Decode JSON get options list from cmdOpt.
-	// options := CmdArgs{}
+	// options := Option{}
 	// log.Printf("parse ffmpeg cmdOpt -> %s", cmdOpt)
 	// if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
 	// 	panic(err)
