@@ -2,12 +2,9 @@ package main
 
 import (
 	"github.com/cgoder/gsc"
-	"github.com/cgoder/gsc/core"
 
 	log "github.com/sirupsen/logrus"
 )
-
-// ffmpeg cmd option
 
 func main() {
 	srcPath := "./gsc/res/video/"
@@ -16,36 +13,7 @@ func main() {
 	srcFile := "test.flv"
 	destFile := "test.mp4"
 
-	// transcode
-	// para := []string{
-	// 	"-vf", "scale=-2:960",
-	// 	"-c:v", "libx264",
-	// 	"-profile:v", "main",
-	// 	"-level:v", "3.1",
-	// 	"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
-	// 	"-minrate", "1000k",
-	// 	"-maxrate", "1000k",
-	// 	"-bufsize", "1000k",
-	// 	"-b:v", "1000k",
-	// 	"-y",
-	// 	"-i", srcPath + srcFile,
-	// 	destPath + destFile,
-	// }
-
-	// para := []string{
-	// 	"-vf scale=-2:960",
-	// 	"-c:v libx264",
-	// 	"-profile:v main",
-	// 	"-level:v 3.1",
-	// 	"-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72",
-	// 	"-minrate 1000k",
-	// 	"-maxrate 1000k",
-	// 	"-bufsize 1000k",
-	// 	"-b:v 1000k",
-	// 	"-y",
-	// }
-
-	para := core.Option{
+	opts := gsc.Options{
 		Input:           srcPath + srcFile,
 		VideoFilter:     "scale=-2:960",
 		VideoCodec:      "libx264",
@@ -56,28 +24,30 @@ func main() {
 		VideoBitRate:    "1000k",
 		Overwrite:       destPath + destFile,
 	}
+	gscOpts := gsc.GscOptions{Opts: opts}
 
-	// remux
-	// para := []string{
-	// 	"-c", "copy",
-	// }
-
-	// split
-	// para := []string{
-	// 	"-c", "copy",
-	// 	"-f", "segment",
-	// 	"-segment_time", "5",
-	// 	"-reset_timestamps", "1",
-	// 	"-map", "0:0",
-	// 	"-map", "0:1",
+	// optslice := []string{
+	// 	"-i", srcPath + srcFile,
+	// 	"-vf", "scale=-2:960",
+	// 	"-c:v", "libx264",
+	// 	"-profile:v", "main",
+	// 	"-level:v", "3.1",
+	// 	"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
+	// 	"-minrate", "1000k",
+	// 	"-maxrate", "1000k",
+	// 	"-bufsize", "1000k",
+	// 	"-b:v", "1000k",
 	// 	"-y",
+	// 	destPath + destFile,
 	// }
-	// destFile = "%d.mp4"
+	// gscOpts := gsc.GscOptions{OptSlice: optslice}
 
-	err := gsc.Run(para)
+	err := gsc.Run(gscOpts)
 
 	if err != nil {
 		log.Error("gsc run err")
 	}
-	// gsc.DelFile(dest)
+
+	// log.Info(common.JsonFormat(gsc.FFProbe))
+	// gsc.DelFile(destPath + destFile)
 }

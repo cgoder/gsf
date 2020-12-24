@@ -3,8 +3,6 @@ package ffmpeg
 import (
 	"encoding/json"
 
-	"github.com/cgoder/gsc/common"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,25 +17,13 @@ type FfOption struct {
 
 // GetArgument
 func (opts *FfOption) GetArgument(arg string) (string, bool) {
-	if opts.CmdSlice == nil {
-		return "", false
-	}
-	// cmd := strings.Join(opts.CmdSlice, " ")
-	// log.Info(common.JsonFormat(cmd))
-	if opts.arguments == nil {
-		if err := json.Unmarshal([]byte(opts.CmdString), &opts.arguments); err != nil {
-			log.Error("cmd args encode to map fail")
-			return "", false
-		}
+	// if opts.CmdSlice == nil {
+	// 	log.Error("FfOption.CmdSlice is nil!")
+	// 	return "", false
+	// }
+	// // cmd := strings.Join(opts.CmdSlice, " ")
 
-		// if opts.CmdString == "" {
-		// 	log.Error("parse args first!")
-		// 	return "", false
-		// } else {
-		// 	opts.SetStrArguments(opts.CmdSlice)
-		// }
-	}
-	log.Info(common.JsonFormat(opts.arguments))
+	opts.CmdString2Slice()
 
 	if v, ok := opts.arguments[arg]; ok {
 		return v, true
@@ -45,6 +31,25 @@ func (opts *FfOption) GetArgument(arg string) (string, bool) {
 
 	log.Error("can not find arg-> .", arg)
 	return "", false
+}
+
+func (opts *FfOption) CmdString2Slice() bool {
+
+	if opts.arguments == nil {
+		if opts.CmdString != "" {
+			// log.Printf("CmdString--- %s", opts.CmdString)
+			if err := json.Unmarshal([]byte(opts.CmdString), &opts.arguments); err != nil {
+				log.Error("cmd args encode to map fail")
+				return false
+			}
+		} else {
+			log.Error("FfOption.CmdString is null!")
+			return false
+		}
+
+		// log.Info(common.JsonFormat(opts.arguments))
+	}
+	return true
 }
 
 // GetStrArguments ...

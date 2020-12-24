@@ -3,13 +3,12 @@ package gsc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/cgoder/gsc/common"
-	"github.com/cgoder/gsc/core"
 	"github.com/cgoder/gsc/core/ffmpeg"
 
 	log "github.com/sirupsen/logrus"
@@ -19,27 +18,58 @@ var (
 	processUpdateInterval = time.Millisecond * 500
 )
 
-func parseOptions(opt core.Option) ffmpeg.FfOption {
-	///// CmdSlice []string
-	value := reflect.ValueOf(opt)
-	types := reflect.TypeOf(opt)
-	var args []string
-	for i := 0; i < value.NumField(); i++ {
-		if value.Field(i).String() != "" {
-			args = append(args, types.Field(i).Tag.Get("json"), value.Field(i).String())
-			log.Printf("Field %v: %v\n", types.Field(i).Tag.Get("json"), value.Field(i))
+func parseOptions(opt GscOptions) ffmpeg.FfOption {
+	var paraStr string
+	ffopt := ffmpeg.FfOption{}
+	// log.Info("GscOptions--->   ", opt)
+
+	// Parse FfOption.CmdString & FfOption.CmdSlice
+	if opt.Opts != (Options{}) {
+		////// CmdString   string
+		paraS, _ := json.Marshal(opt.Opts)
+		// log.Printf("paraS--->%s   ", paraS)
+		paraStr = string(paraS[:])
+		ffopt.CmdString = paraStr
+
+		if opt.OptSlice == nil {
+			///// CmdSlice []string
+			value := reflect.ValueOf(opt.Opts)
+			types := reflect.TypeOf(opt.Opts)
+			var argSlice []string
+			for i := 0; i < value.NumField(); i++ {
+				if value.Field(i).String() != "" {
+					argSlice = append(argSlice, types.Field(i).Tag.Get("json"), value.Field(i).String())
+					// log.Printf("Field %v: %v\n", types.Field(i).Tag.Get("json"), value.Field(i))
+				}
+			}
+			// log.Printf("args--->%s   ", argSlice)
+			ffopt.CmdSlice = argSlice
+			// copy(ffopt.CmdSlice, argSlice)
+		} else {
+			ffopt.CmdSlice = opt.OptSlice
+			// log.Printf("OptSlice--->%s   ", opt.OptSlice)
+			// copy(ffopt.CmdSlice, opt.OptSlice)
+		}
+	} else {
+		if opt.OptSlice != nil {
+			// translate OptSlice to CmdString
+			paraStr = strings.Join(opt.OptSlice, " ")
+			ffopt.CmdString = paraStr
+			// paraStr, _ := json.Marshal(opt.OptSlice)
+			// log.Printf("paraStr--->%s   ", paraStr)
+			// ffopt.CmdString = string(paraStr[:])
+
+			//TODO
+			ffopt.CmdSlice = opt.OptSlice
+			// copy(ffopt.CmdSlice, opt.OptSlice)
 		}
 	}
-	log.Printf("args--->%s   ", args)
+	log.Printf("CmdString--->%s   ", ffopt.CmdString)
+	log.Printf("CmdSlice--->%s   ", ffopt.CmdSlice)
 
-	////// CmdString   string
-	paraS, _ := json.Marshal(opt)
-	// log.Printf("paraS--->%s   ", paraS)
-	paraStr := string(paraS[:])
-	log.Info("paraStr--->   ", paraStr)
+	ffopt.CmdString2Slice()
 
-	ffopt := ffmpeg.FfOption{CmdString: paraStr, CmdSlice: args}
-	log.Info("ffopt--->   ", ffopt)
+	// log.Info("ffopt--->   ", ffopt)
 	return ffopt
 }
 
@@ -51,20 +81,20 @@ func parseOptions(opt core.Option) ffmpeg.FfOption {
 // ('h264_main_480p_1000', '{"raw":["-vf scale=-2:480","-c:v libx264","-profile:v main","-level:v 3.1","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 1000k","-maxrate 1000k","-bufsize 1000k","-b:v 1000k","-y"]}');
 // ('h264_baseline_360p_600', '{"raw":["-vf scale=-2:360","-c:v libx264","-profile:v baseline","-level:v 3.0","-x264opts scenecut=0:open_gop=0:min-keyint=72:keyint=72","-minrate 600k","-maxrate 600k","-bufsize 600k","-b:v 600k","-y"]}');
 
-func Run(opt core.Option) error {
+func Run(opt GscOptions) error {
 	ffopt := parseOptions(opt)
-
+	log.Info("ffopt--->   ", ffopt)
 	// if inURI/outURI not exist.
-	src, ok := ffopt.GetArgument("-i")
-	if !ok {
-		err := errors.New("ffmpeg get args error")
-		return err
-	}
-	_, err := os.Stat(src)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
+	// src, ok := ffopt.GetArgument("-i")
+	// if !ok {
+	// 	err := errors.New("ffmpeg get args error")
+	// 	return err
+	// }
+	// _, err := os.Stat(src)
+	// if err != nil {
+	// 	log.Error(err)
+	// 	return err
+	// }
 	// log.Info(src)
 	// log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
 
@@ -86,21 +116,21 @@ func Run(opt core.Option) error {
 	defer cancel()
 
 	// probe in file
-	ffprobe := ffmpeg.FFProbe{}
 	ffmpeg := ffmpeg.FFmpeg{}
-	probeData := ffprobe.Execute(src, "")
-	if err != nil {
-		log.Error("ffprobe execute err")
-		return err
-	}
+	// ffprobe := ffmpeg.FFProbe{}
+	// probeData := ffprobe.Execute(src, "")
+	// if err != nil {
+	// 	log.Error("ffprobe execute err")
+	// 	return err
+	// }
 	// log.Info("Source file info ---> ", common.JsonFormat(probeData))
 
 	// progress
-	go runProgress(ctx, "TranscodeTask", 1, probeData, &ffmpeg)
+	go runProgress(ctx, "TranscodeTask", 1, &ffmpeg)
 
 	// Exec
 	// log.Info(ffmpeg.Version())
-	err = ffmpeg.Execute(ctx, ffopt)
+	err := ffmpeg.Execute(ctx, ffopt)
 	if err != nil {
 		log.Error("ffmpeg execute err")
 		return err
@@ -117,7 +147,7 @@ func Run(opt core.Option) error {
 	return nil
 }
 
-func runProgress(ctx context.Context, guid string, encodeID int64, p *ffmpeg.Metadata, f *ffmpeg.FFmpeg) {
+func runProgress(ctx context.Context, guid string, encodeID int64, f *ffmpeg.FFmpeg) {
 
 	ticker := time.NewTicker(processUpdateInterval)
 	defer ticker.Stop()
@@ -130,7 +160,7 @@ func runProgress(ctx context.Context, guid string, encodeID int64, p *ffmpeg.Met
 			return
 		case <-ticker.C:
 			// default:
-			log.Info(common.JsonFormat(f.Status))
+			// log.Info(common.JsonFormat(f.Status))
 		}
 	}
 }

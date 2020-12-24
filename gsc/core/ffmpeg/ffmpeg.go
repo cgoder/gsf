@@ -88,9 +88,9 @@ type audioOptions struct {
 // Execute runs the ffmpeg encoder with options.
 func (f *FFmpeg) Execute(ctx context.Context, ffopt FfOption) error {
 
-	log.Info("ffopt.CmdString---", ffopt.CmdString)
-	log.Info("ffopt.CmdSlice---", ffopt.CmdSlice)
-	log.Info("ffopt.arguments---", ffopt.arguments)
+	// log.Info("\t ffopt.CmdString--- ", ffopt.CmdString)
+	// log.Info("\t ffopt.CmdSlice--- ", ffopt.CmdSlice)
+	// log.Info("\t ffopt.arguments--- ", ffopt.arguments)
 	// Parse options and add to args slice.
 	ok, args := parseOptions(ffopt.CmdSlice)
 	if !ok {
@@ -167,7 +167,7 @@ func parseOptions(cmdSlice []string) (bool, []string) {
 	}
 
 	// Decode JSON get options list from cmdOpt.
-	// options := Option{}
+	// options := Options{}
 	// log.Printf("parse ffmpeg cmdOpt -> %s", cmdOpt)
 	// if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
 	// 	panic(err)
