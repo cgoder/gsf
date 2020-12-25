@@ -13,7 +13,7 @@ const ffprobeCmd = "ffprobe"
 type FFProbe struct{}
 
 // Execute runs an FFProbe command.
-func (f FFProbe) Execute(input string, cmdOpt string) *Metadata {
+func (f FFProbe) Execute(input string, cmdOpt string) (*Metadata, error) {
 	args := []string{
 		"-i", input,
 		"-show_format",
@@ -30,7 +30,8 @@ func (f FFProbe) Execute(input string, cmdOpt string) *Metadata {
 	cmd := exec.Command(ffprobeCmd, args...)
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Error(err.Error())
+		log.Error("ffprobe exec err: ", err)
+		return nil, err
 	}
 	// log.Info(string(stdout))
 
@@ -38,5 +39,5 @@ func (f FFProbe) Execute(input string, cmdOpt string) *Metadata {
 	if err := json.Unmarshal([]byte(stdout), &dat); err != nil {
 		panic(err)
 	}
-	return dat
+	return dat, nil
 }

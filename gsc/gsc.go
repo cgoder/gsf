@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -18,12 +19,14 @@ var (
 	processUpdateInterval = time.Millisecond * 500
 )
 
-func parseOptions(opt GscOptions) ffmpeg.FfOption {
+func parseOptions(opt GscOptions) ffmpeg.FFOption {
 	var paraStr string
-	ffopt := ffmpeg.FfOption{}
+	ffopt := ffmpeg.FFOption{}
+	ffopt.Input = opt.Input
+	ffopt.Output = opt.Output
 	// log.Info("GscOptions--->   ", opt)
 
-	// Parse FfOption.CmdString & FfOption.CmdSlice
+	// Parse FFOption.CmdString & FFOption.CmdSlice
 	if opt.Opts != (Options{}) {
 		////// CmdString   string
 		paraS, _ := json.Marshal(opt.Opts)
@@ -83,66 +86,56 @@ func parseOptions(opt GscOptions) ffmpeg.FfOption {
 
 func Run(opt GscOptions) error {
 	ffopt := parseOptions(opt)
-	log.Info("ffopt--->   ", ffopt)
-	// if inURI/outURI not exist.
-	// src, ok := ffopt.GetArgument("-i")
-	// if !ok {
-	// 	err := errors.New("ffmpeg get args error")
-	// 	return err
-	// }
-	// _, err := os.Stat(src)
-	// if err != nil {
-	// 	log.Error(err)
-	// 	return err
-	// }
-	// log.Info(src)
-	// log.Info("fileinfo: ", fileInfo.IsDir(), fileInfo.Name(), fileInfo.Size())
+	// log.Info("ffopt--->   ", ffopt)
 
-	// dst, ok := ffopt.GetArgument("-o")
-	// if !ok {
-	// 	err := errors.New("ffmpeg get args error")
-	// 	return err
-	// }
-	// _, err = os.Stat(dst)
-	// if err != nil && os.IsNotExist(err) {
-	// 	err = CreateLocalPath(dst, "")
-	// 	if err != nil {
-	// 		log.Error("create path error! ", dst)
-	// 		return err
-	// 	}
-	// }
+	if exist, err := FilePathExists(ffopt.Input); !exist {
+		log.Error("src file not exist err: ", err)
+		return err
+	}
+
+	if ffopt.Output != "" {
+		dirname, _ := filepath.Split(ffopt.Output)
+		if exist, _ := FilePathExists(dirname); !exist {
+			log.Info("dst file not exist, create it... ", dirname)
+			if err := FilePathCreate(dirname, ""); err != nil {
+				log.Error("create dst path err: ", err)
+				return err
+			}
+		}
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// probe in file
-	ffmpeg := ffmpeg.FFmpeg{}
 	// ffprobe := ffmpeg.FFProbe{}
-	// probeData := ffprobe.Execute(src, "")
-	// if err != nil {
-	// 	log.Error("ffprobe execute err")
+	// if probeData, err := ffprobe.Execute(ffopt.Input, ""); err == nil {
+	// 	log.Info("Src file info ---> ", common.JsonFormat(probeData))
+	// } else {
+	// 	log.Error("ffprobe execute err: ", err)
 	// 	return err
 	// }
-	// log.Info("Source file info ---> ", common.JsonFormat(probeData))
+
+	ffmpeg := ffmpeg.FFmpeg{}
 
 	// progress
 	go runProgress(ctx, "TranscodeTask", 1, &ffmpeg)
 
 	// Exec
 	// log.Info(ffmpeg.Version())
-	err := ffmpeg.Execute(ctx, ffopt)
-	if err != nil {
-		log.Error("ffmpeg execute err")
+	if err := ffmpeg.Execute(ctx, ffopt); err != nil {
+		log.Error("ffmpeg execute err: ", err)
 		return err
 	}
 	// log.Info(Common.JsonFormat(ffmpeg.Status))
+
 	// probe out file
-	// probeData = ffprobe.Execute(destPath + destFile)
-	// if err != nil {
-	// 	log.Error("ffprobe execute err")
+	// if probeData, err := ffprobe.Execute(ffopt.Input, ""); err == nil {
+	// 	log.Info("Dst file info ---> ", common.JsonFormat(probeData))
+	// } else {
+	// 	log.Error("ffprobe execute err: ", err)
 	// 	return err
 	// }
-	// log.Info(Common.JsonFormat(probeData))
 
 	return nil
 }
@@ -159,13 +152,13 @@ func runProgress(ctx context.Context, guid string, encodeID int64, f *ffmpeg.FFm
 			log.Info("transcode done.")
 			return
 		case <-ticker.C:
-			// default:
+		default:
 			// log.Info(common.JsonFormat(f.Status))
 		}
 	}
 }
 
-func CreateLocalPath(dirPath string, GUID string) error {
+func FilePathCreate(dirPath string, GUID string) error {
 	// Get local destination path.
 	var tmpDir string
 	if GUID == "" {
@@ -181,12 +174,33 @@ func CreateLocalPath(dirPath string, GUID string) error {
 	return nil
 }
 
-func DelFile(filePath string) error {
+func FileDel(filePath string) (bool, error) {
 	log.Info("del file: ", filePath)
 
 	err := os.RemoveAll(filePath)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
+}
+
+// 判断所给路径文件/文件夹是否存在
+func FilePathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+// 判断所给路径是否为文件夹
+func IsDir(path string) (bool, error) {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	return s.IsDir(), nil
 }

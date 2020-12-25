@@ -86,28 +86,25 @@ type audioOptions struct {
 }
 
 // Execute runs the ffmpeg encoder with options.
-func (f *FFmpeg) Execute(ctx context.Context, ffopt FfOption) error {
+func (f *FFmpeg) Execute(ctx context.Context, ffopt FFOption) error {
 
 	// log.Info("\t ffopt.CmdString--- ", ffopt.CmdString)
 	// log.Info("\t ffopt.CmdSlice--- ", ffopt.CmdSlice)
 	// log.Info("\t ffopt.arguments--- ", ffopt.arguments)
 	// Parse options and add to args slice.
-	ok, args := parseOptions(ffopt.CmdSlice)
+	ok, cmds := getFFmpegCmdString(ffopt)
 	if !ok {
-		err := errors.New("ffmpeg execute args error")
+		err := errors.New("ffmpeg get cmds error")
 		return err
 	}
 
 	// Execute command.
-	log.Printf("running FFmpeg with options: %s", args)
-	// args = append(args, cmdOpt)
-	// f.cmd = exec.Command(ffmpegCmd, args...)
-	f.cmd = exec.CommandContext(ctx, ffmpegCmd, args...)
-
-	// // Capture stderr (if any).
-	// var stderr bytes.Buffer
-	// f.cmd.Stderr = &stderr
-	// stdout, _ := f.cmd.StdoutPipe()
+	log.Printf("running FFmpeg with options: %s", cmds)
+	// for _, v := range cmds {
+	// 	log.Info("vvv--- ", v)
+	// }
+	// f.cmd = exec.Command(ffmpegCmd, cmds...)
+	f.cmd = exec.CommandContext(ctx, ffmpegCmd, cmds...)
 
 	// ffmpeg writes its output to stderr
 	stderr, err := f.cmd.StderrPipe()
@@ -143,8 +140,8 @@ func (f *FFmpeg) Execute(ctx context.Context, ffopt FfOption) error {
 }
 
 // Utilities for parsing ffmpeg options.
-func parseOptions(cmdSlice []string) (bool, []string) {
-	if cmdSlice == nil {
+func getFFmpegCmdString(opt FFOption) (bool, []string) {
+	if opt.CmdSlice == nil {
 		return false, nil
 	}
 
@@ -162,35 +159,21 @@ func parseOptions(cmdSlice []string) (bool, []string) {
 		"-progress", stdoutName,
 	}
 
-	for _, v := range cmdSlice {
+	// Add src
+	if opt.Input != "" {
+		args = append(args, "-i", opt.Input)
+	}
+
+	// Add option
+	for _, v := range opt.CmdSlice {
 		args = append(args, v)
 	}
 
-	// Decode JSON get options list from cmdOpt.
-	// options := Options{}
-	// log.Printf("parse ffmpeg cmdOpt -> %s", cmdOpt)
-	// if err := json.Unmarshal([]byte(cmdOpt), &options); err != nil {
-	// 	panic(err)
-	// }
-	// log.Printf("parse ffmpeg option -> %s", options)
+	// Add dst
+	if opt.Output != "" {
+		args = append(args, opt.Output)
+	}
 
-	// log.Printf("parse ffmpeg args -> %s", args)
-	// // log.Info(strings.Join(string(cmdOpt[:]), ":"))
-	// log.Info(common.JsonFormat(options))
-	// If raw options provided, add the list of raw options from ffmpeg presets.
-	// if len(options) > 0 {
-	// 	for _, v := range options {
-	// 		args = append(args, strings.Split(v, " ")...)
-	// 	}
-	// 	// args = append(args, output)
-	// 	return true, args
-	// }
-
-	// Set options from struct.
-	// args = append(args, transformOptions(options)...)
-
-	// Add output arg last.
-	// args = append(args, output)
 	return true, args
 }
 

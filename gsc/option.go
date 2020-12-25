@@ -1,13 +1,15 @@
 package gsc
 
 type GscOptions struct {
+	Input    string
+	Output   string
 	Opts     Options
 	OptSlice []string
 }
 
 type Options struct {
-	Input                 string `json:"-i"`
-	Output                string `json:"-o"`
+	// Input                 string `json:"-i"`
+	// Output                string `json:"-o"`
 	Aspect                string `json:"-aspect"`
 	Resolution            string `json:"-s"`
 	VideoBitRate          string `json:"-b:v"`
@@ -68,98 +70,98 @@ type Options struct {
 	Overwrite             string `json:"-y"`
 }
 
-type OptionFunc func(*Options)
+type OptionFunc func(*GscOptions)
 
 func SetInput(src string) OptionFunc {
-	return func(o *Options) {
+	return func(o *GscOptions) {
 		o.Input = src
 	}
 }
 
 func SetOutput(dst string) OptionFunc {
-	return func(o *Options) {
+	return func(o *GscOptions) {
 		o.Output = dst
 	}
 }
 
-// transcode
-// para := []string{
-// 	"-vf", "scale=-2:960",
-// 	"-c:v", "libx264",
-// 	"-profile:v", "main",
-// 	"-level:v", "3.1",
-// 	"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
-// 	"-minrate", "1000k",
-// 	"-maxrate", "1000k",
-// 	"-bufsize", "1000k",
-// 	"-b:v", "1000k",
-// 	"-y",
-// 	"-i", srcPath + srcFile,
-// 	destPath + destFile,
+// // transcode
+// // para := []string{
+// // 	"-vf", "scale=-2:960",
+// // 	"-c:v", "libx264",
+// // 	"-profile:v", "main",
+// // 	"-level:v", "3.1",
+// // 	"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
+// // 	"-minrate", "1000k",
+// // 	"-maxrate", "1000k",
+// // 	"-bufsize", "1000k",
+// // 	"-b:v", "1000k",
+// // 	"-y",
+// // 	"-i", srcPath + srcFile,
+// // 	destPath + destFile,
+// // }
+// func NewOptionsEncode(opts ...OptionFunc) Options {
+// 	opt := Options{
+// 		VideoFilter:     "scale=-2:960",
+// 		VideoCodec:      "libx264",
+// 		VideoProfile:    "main",
+// 		VideoMinBitrate: "1000k",
+// 		VideoMaxBitRate: "1000k",
+// 		BufferSize:      "1000k",
+// 		VideoBitRate:    "1000k",
+// 		Overwrite:       "",
+// 	}
+
+// 	for _, o := range opts {
+// 		o(&opt)
+// 	}
+
+// 	return opt
 // }
-func NewOptionsEncode(opts ...OptionFunc) Options {
-	opt := Options{
-		VideoFilter:     "scale=-2:960",
-		VideoCodec:      "libx264",
-		VideoProfile:    "main",
-		VideoMinBitrate: "1000k",
-		VideoMaxBitRate: "1000k",
-		BufferSize:      "1000k",
-		VideoBitRate:    "1000k",
-		Overwrite:       "",
-	}
 
-	for _, o := range opts {
-		o(&opt)
-	}
+// // split
+// // para := []string{
+// // 	"-c", "copy",
+// // 	"-f", "segment",
+// // 	"-segment_time", "5",
+// // 	"-reset_timestamps", "1",
+// // 	"-map", "0:0",
+// // 	"-map", "0:1",
+// // 	"-y",
+// // }
+// // destFile = "%d.mp4"
+// func NewOptionsSplit(opts ...OptionFunc) Options {
+// 	opt := Options{
+// 		VideoCodec:      "copy",
+// 		AudioCodec:      "copy",
+// 		OutputFormat:    "segment",
+// 		SegmentTime:     "5",
+// 		ResetTimestamps: "1",
+// 		Map:             "0:0",
+// 		// Map:             "0:1",
+// 		Overwrite: "",
+// 	}
 
-	return opt
-}
+// 	for _, o := range opts {
+// 		o(&opt)
+// 	}
 
-// split
-// para := []string{
-// 	"-c", "copy",
-// 	"-f", "segment",
-// 	"-segment_time", "5",
-// 	"-reset_timestamps", "1",
-// 	"-map", "0:0",
-// 	"-map", "0:1",
-// 	"-y",
+// 	return opt
 // }
-// destFile = "%d.mp4"
-func NewOptionsSplit(opts ...OptionFunc) Options {
-	opt := Options{
-		VideoCodec:      "copy",
-		AudioCodec:      "copy",
-		OutputFormat:    "segment",
-		SegmentTime:     "5",
-		ResetTimestamps: "1",
-		Map:             "0:0",
-		// Map:             "0:1",
-		Overwrite: "",
-	}
 
-	for _, o := range opts {
-		o(&opt)
-	}
+// // remux
+// // para := []string{
+// // 	"-c", "copy",
+// // }
+// func NewOptionsRemux(opts ...OptionFunc) Options {
+// 	opt := Options{
+// 		VideoCodec: "copy",
+// 		AudioCodec: "copy",
+// 		Overwrite:  "",
+// 	}
 
-	return opt
-}
+// 	for _, o := range opts {
+// 		o(&opt)
+// 	}
 
-// remux
-// para := []string{
-// 	"-c", "copy",
+// 	return opt
 // }
-func NewOptionsRemux(opts ...OptionFunc) Options {
-	opt := Options{
-		VideoCodec: "copy",
-		AudioCodec: "copy",
-		Overwrite:  "",
-	}
-
-	for _, o := range opts {
-		o(&opt)
-	}
-
-	return opt
-}

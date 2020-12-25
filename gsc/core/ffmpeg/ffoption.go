@@ -6,7 +6,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type FfOption struct {
+type FFOption struct {
+	Input  string
+	Output string
 	// ffmpeg cmmon option slice. like [-maxrate 1000k]
 	CmdSlice []string
 	// ffmpeg common option string.like [-hide_banner -progress /dev/stdout -i ./gsc/res/video/test.flv -b:v 1000k -maxrate 1000k -minrate 1000k -c:v libx264 -bufsize 1000k -profile:v main -vf scale=-2:960 -y ./gsc/res/out/test.mp4]
@@ -16,9 +18,9 @@ type FfOption struct {
 }
 
 // GetArgument
-func (opts *FfOption) GetArgument(arg string) (string, bool) {
+func (opts *FFOption) GetArgument(arg string) (string, bool) {
 	// if opts.CmdSlice == nil {
-	// 	log.Error("FfOption.CmdSlice is nil!")
+	// 	log.Error("FFOption.CmdSlice is nil!")
 	// 	return "", false
 	// }
 	// // cmd := strings.Join(opts.CmdSlice, " ")
@@ -33,17 +35,18 @@ func (opts *FfOption) GetArgument(arg string) (string, bool) {
 	return "", false
 }
 
-func (opts *FfOption) CmdString2Slice() bool {
+func (opts *FFOption) CmdString2Slice() bool {
 
 	if opts.arguments == nil {
 		if opts.CmdString != "" {
 			// log.Printf("CmdString--- %s", opts.CmdString)
 			if err := json.Unmarshal([]byte(opts.CmdString), &opts.arguments); err != nil {
-				log.Error("cmd args encode to map fail")
+				log.Error("cmd args encode to map fail. err: ", err)
+
 				return false
 			}
 		} else {
-			log.Error("FfOption.CmdString is null!")
+			log.Error("FFOption.CmdString is null!")
 			return false
 		}
 
@@ -53,6 +56,6 @@ func (opts *FfOption) CmdString2Slice() bool {
 }
 
 // GetStrArguments ...
-func (opts *FfOption) GetStrArguments() map[string]string {
+func (opts *FFOption) GetStrArguments() map[string]string {
 	return opts.arguments
 }
