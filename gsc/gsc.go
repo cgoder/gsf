@@ -3,7 +3,6 @@ package gsc
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -88,16 +87,16 @@ func Run(opt GscOptions) error {
 	ffopt := parseOptions(opt)
 	// log.Info("ffopt--->   ", ffopt)
 
-	if exist, err := FilePathExists(ffopt.Input); !exist {
+	if exist, err := common.FilePathExists(ffopt.Input); !exist {
 		log.Error("src file not exist err: ", err)
 		return err
 	}
 
 	if ffopt.Output != "" {
 		dirname, _ := filepath.Split(ffopt.Output)
-		if exist, _ := FilePathExists(dirname); !exist {
+		if exist, _ := common.FilePathExists(dirname); !exist {
 			log.Info("dst file not exist, create it... ", dirname)
-			if err := FilePathCreate(dirname, ""); err != nil {
+			if err := common.FilePathCreate(dirname, ""); err != nil {
 				log.Error("create dst path err: ", err)
 				return err
 			}
@@ -156,51 +155,4 @@ func runProgress(ctx context.Context, guid string, encodeID int64, f *ffmpeg.FFm
 			// log.Info(common.JsonFormat(f.Status))
 		}
 	}
-}
-
-func FilePathCreate(dirPath string, GUID string) error {
-	// Get local destination path.
-	var tmpDir string
-	if GUID == "" {
-		tmpDir = dirPath
-	} else {
-		tmpDir = dirPath + "/" + GUID
-	}
-
-	err := os.MkdirAll(tmpDir, 0700)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func FileDel(filePath string) (bool, error) {
-	log.Info("del file: ", filePath)
-
-	err := os.RemoveAll(filePath)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-// 判断所给路径文件/文件夹是否存在
-func FilePathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-// 判断所给路径是否为文件夹
-func IsDir(path string) (bool, error) {
-	s, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-	return s.IsDir(), nil
 }

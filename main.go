@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	srcPath := "./gsc/res/video/"
-	destPath := "./gsc/res/out/"
+	srcPath := "./res/video/"
+	destPath := "./res/out/"
 
 	srcFile := "test.flv"
 	destFile := "test.mp4"
