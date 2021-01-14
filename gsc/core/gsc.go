@@ -1,4 +1,4 @@
-package gsc
+package core
 
 import (
 	"context"

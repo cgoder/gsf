@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package proto;
+option go_package=".;proto";
+
+service Gsc {
+    rpc Run(GscRequest) returns (GscResponse) {}
+}
+
+message GscRequest {
+    string Input =1;
+	string Output=2;
+    repeated string OptSlice=3;
+}
+
+message GscResponse{
+    string Err=1;
+    string Result=2;
+}

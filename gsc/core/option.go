@@ -1,4 +1,4 @@
-package gsc
+package core
 
 type GscOptions struct {
 	Input    string
