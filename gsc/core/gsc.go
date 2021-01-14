@@ -85,7 +85,7 @@ func parseOptions(opt GscOptions) ffmpeg.FFOption {
 
 func Run(opt GscOptions) error {
 	ffopt := parseOptions(opt)
-	// log.Info("ffopt--->   ", ffopt)
+	log.Info("ffopt--->   ", ffopt)
 
 	if exist, err := common.FilePathExists(ffopt.Input); !exist {
 		log.Error("src file not exist err: ", err)
@@ -107,7 +107,7 @@ func Run(opt GscOptions) error {
 	defer cancel()
 
 	// probe in file
-	// ffprobe := ffmpeg.FFProbe{}
+	ffprobe := ffmpeg.FFProbe{}
 	// if probeData, err := ffprobe.Execute(ffopt.Input, ""); err == nil {
 	// 	log.Info("Src file info ---> ", common.JsonFormat(probeData))
 	// } else {
@@ -129,12 +129,12 @@ func Run(opt GscOptions) error {
 	// log.Info(Common.JsonFormat(ffmpeg.Status))
 
 	// probe out file
-	// if probeData, err := ffprobe.Execute(ffopt.Input, ""); err == nil {
-	// 	log.Info("Dst file info ---> ", common.JsonFormat(probeData))
-	// } else {
-	// 	log.Error("ffprobe execute err: ", err)
-	// 	return err
-	// }
+	if probeData, err := ffprobe.Execute(ffopt.Output, ""); err == nil {
+		log.Info("Dst file info ---> ", common.JsonFormat(probeData))
+	} else {
+		log.Error("ffprobe execute err: ", err)
+		return err
+	}
 
 	return nil
 }

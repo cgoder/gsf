@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/cgoder/gsc"
+	gsc "github.com/cgoder/gsc/core"
 
 	log "github.com/sirupsen/logrus"
 )
