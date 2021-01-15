@@ -17,24 +17,7 @@ func (gsc *Gsc) Run(ctx context.Context, gscReq *pb.GscRequest, gscRes *pb.GscRe
 		return errors.New("request is nil!")
 	}
 
-	optslice := []string{
-		"-vf", "scale=-2:960",
-		"-c:v", "libx264",
-		"-profile:v", "main",
-		"-level:v", "3.1",
-		"-x264opts", "scenecut=0:open_gop=0:min-keyint=72:keyint=72",
-		"-minrate", "1000k",
-		"-maxrate", "1000k",
-		"-bufsize", "1000k",
-		"-b:v", "1000k",
-		"-y",
-	}
-	opts := gscReq.OptSlice
-	if opts == nil {
-		opts = optslice
-	}
-
-	gscOpts := core.GscOptions{Input: gscReq.Input, Output: gscReq.Output, OptSlice: opts}
+	gscOpts := core.GscOptions{Input: gscReq.Input, Output: gscReq.Output, OptSlice: gscReq.OptSlice}
 	err := core.Run(gscOpts)
 	if err != nil {
 		fmt.Println("gsc run err")
