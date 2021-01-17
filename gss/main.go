@@ -6,9 +6,10 @@ import (
 )
 
 func main() {
-	log.Info("transcode begin ...")
+	log.Info("gss exec begin ...")
 
-	cmd.Transcode()
+	// cmd.Transcode()
+	cmd.Split()
 
-	log.Info("transcode end ...")
+	log.Info("gss exec end ...")
 }
