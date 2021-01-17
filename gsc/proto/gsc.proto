@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package proto;
-option go_package=".;proto";
+option go_package="github.com/cgoder/gsc/proto";
 
 service Gsc {
     rpc Run(GscRequest) returns (GscResponse) {}
