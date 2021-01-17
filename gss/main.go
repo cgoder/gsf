@@ -9,7 +9,8 @@ func main() {
 	log.Info("gss exec begin ...")
 
 	// cmd.Transcode()
-	cmd.Split()
+	// cmd.Split()
+	cmd.Remux()
 
 	log.Info("gss exec end ...")
 }
