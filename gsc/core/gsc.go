@@ -107,7 +107,7 @@ func Run(opt GscOptions) error {
 	defer cancel()
 
 	// probe in file
-	ffprobe := ffmpeg.FFProbe{}
+	// ffprobe := ffmpeg.FFProbe{}
 	// if probeData, err := ffprobe.Execute(ffopt.Input, ""); err == nil {
 	// 	log.Info("Src file info ---> ", common.JsonFormat(probeData))
 	// } else {
@@ -129,12 +129,12 @@ func Run(opt GscOptions) error {
 	// log.Info(Common.JsonFormat(ffmpeg.Status))
 
 	// probe out file
-	if probeData, err := ffprobe.Execute(ffopt.Output, ""); err == nil {
-		log.Info("Dst file info ---> ", common.JsonFormat(probeData))
-	} else {
-		log.Error("ffprobe execute err: ", err)
-		return err
-	}
+	// if probeData, err := ffprobe.Execute(ffopt.Output, ""); err == nil {
+	// 	log.Info("Dst file info ---> ", common.JsonFormat(probeData))
+	// } else {
+	// 	log.Error("ffprobe execute err: ", err)
+	// 	return err
+	// }
 
 	return nil
 }
